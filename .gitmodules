@@ -1,0 +1,6 @@
+[submodule "Extern/GoogleTest"]
+	path = Extern/GoogleTest
+	url = https://github.com/google/googletest.git
+[submodule "Extern/AVL"]
+	path = Extern/AVL
+	url = git@github.com:mmdproduction/lab_1-trees-.git
