@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/evodev/EvoSoft/Mephi/lab3-graph/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
