@@ -1,9 +1,0 @@
-/home/evodev/EvoSoft/Mephi/lab3-graph/build/CMakeFiles/graph_tests.dir
-/home/evodev/EvoSoft/Mephi/lab3-graph/build/CMakeFiles/edit_cache.dir
-/home/evodev/EvoSoft/Mephi/lab3-graph/build/CMakeFiles/rebuild_cache.dir
-/home/evodev/EvoSoft/Mephi/lab3-graph/build/Extern/GoogleTest/CMakeFiles/edit_cache.dir
-/home/evodev/EvoSoft/Mephi/lab3-graph/build/Extern/GoogleTest/CMakeFiles/rebuild_cache.dir
-/home/evodev/EvoSoft/Mephi/lab3-graph/build/Extern/GoogleTest/googletest/CMakeFiles/gtest.dir
-/home/evodev/EvoSoft/Mephi/lab3-graph/build/Extern/GoogleTest/googletest/CMakeFiles/gtest_main.dir
-/home/evodev/EvoSoft/Mephi/lab3-graph/build/Extern/GoogleTest/googletest/CMakeFiles/edit_cache.dir
-/home/evodev/EvoSoft/Mephi/lab3-graph/build/Extern/GoogleTest/googletest/CMakeFiles/rebuild_cache.dir
