@@ -10,6 +10,7 @@ struct WeightedEdge {
     ID from{};
     ID to{};
     Weight weight{};
+    std::size_t edge_index = 0;  // Index in the source pair at the time of the snapshot.
 };
 
 template <ComparableVertexId ID, typename Weight>

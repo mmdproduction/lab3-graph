@@ -6,7 +6,6 @@
 #include "../Sequence/DynamicArray/DynamicArray.hpp"
 
 namespace graph_detail {
-// Numeric indices are temporary; the graph's public vertex IDs stay generic.
 class DisjointSet {
 private:
     DynamicArray<std::size_t> parents_;

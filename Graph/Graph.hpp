@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "GraphTypes.hpp"
+#include "GraphStep.hpp"
 #include "ColoringResult.hpp"
 #include "DisjointSet.hpp"
 #include "SpanningForestResult.hpp"
@@ -85,9 +86,9 @@ private:
     void for_each_path_edge(Visitor&& visitor) const {
         edges_.for_each([&](const EdgeKey<VertexID>& key, const ArraySequence<Weight>& weights) {
             for (std::size_t i = 0; i < weights.size(); ++i) {
-                visitor(key.from, key.to, weights.get(i));
+                visitor(key.from, key.to, weights.get(i), i);
                 if (!directed_ && !EquivalentVertexIds(key.from, key.to)) {
-                    visitor(key.to, key.from, weights.get(i));
+                    visitor(key.to, key.from, weights.get(i), i);
                 }
             }
         });
@@ -96,9 +97,14 @@ private:
     PathResult<VertexID, Weight> recover_path(
         const VertexID& start, const VertexID& finish,
         const AvlDictionary<VertexID, Weight>& distances,
-        const AvlDictionary<VertexID, VertexID>& predecessors) const requires NumericPathWeight<Weight> {
+        const AvlDictionary<VertexID, VertexID>& predecessors,
+        const GraphObserver<VertexID, Weight>& observer) const requires NumericPathWeight<Weight> {
         PathResult<VertexID, Weight> result;
-        if (!distances.contains_key(finish)) return result;
+        if (!distances.contains_key(finish)) {
+            if (observer) observer({.kind=GraphStepKind::Unreachable, .vertex=finish});
+            if (observer) observer({.kind=GraphStepKind::Complete});
+            return result;
+        }
         result.total_weight = distances.get(finish);
         ArraySequence<VertexID> reversed;
         VertexID current = finish;
@@ -110,6 +116,19 @@ private:
         reversed.append(start);
         for (std::size_t i = reversed.size(); i > 0; --i) result.vertices.append(reversed.get(i - 1));
         result.reachable = true;
+        if (observer) {
+            for (std::size_t i = 0; i < result.vertices.size(); ++i) {
+                observer({.kind=GraphStepKind::PathVertex, .vertex=result.vertices.get(i)});
+                if (i == 0) continue;
+                const auto& from = result.vertices.get(i - 1);
+                const auto& to = result.vertices.get(i);
+                const auto& weights = get_edge_weights(from, to);
+                std::size_t best = 0;
+                for (std::size_t j = 1; j < weights.size(); ++j) if (weights.get(j) < weights.get(best)) best = j;
+                observer({.kind=GraphStepKind::PathEdge, .from=from, .to=to, .edge_index=best, .value=weights.get(best)});
+            }
+            observer({.kind=GraphStepKind::Complete, .value=result.total_weight, .number=result.vertices.size()});
+        }
         return result;
     }
 
@@ -122,7 +141,6 @@ private:
             if (right.from < left.from) return false;
             return left.to < right.to;
         };
-        // Build a max heap, then move its largest edge to the end repeatedly.
         const auto sift_down = [&](std::size_t root, std::size_t count) {
             while (root < count / 2) {
                 std::size_t child = root * 2 + 1;
@@ -303,7 +321,6 @@ public:
         edges_.remove(MakeEdgeKey(from, to, directed_));
     }
 
-    // Neighbor lists contain each ID once, regardless of parallel edges.
     ArraySequence<VertexID> get_neighbors(const VertexID& id) const {
         return collect_neighbors(id, true);
     }
@@ -340,63 +357,77 @@ public:
 
     //algoritms (((((CODEX))))) P.S. GEMINI
 
-    ArraySequence<VertexID> BFS(const VertexID& start) const {
-        if (!contains_vertex(start)) throw std::out_of_range("start vertex not found");
-
+    ArraySequence<VertexID> BFS(const VertexID& start, const GraphObserver<VertexID, Weight>& observer = {}) const {
+        require_vertex(start);
+        if (observer) observer({.kind=GraphStepKind::Begin});
         ArraySequence<VertexID> order;
         AvlDictionary<VertexID, bool> visited;
         Queue<VertexID> pending;
         visited.add(start, true);
         pending.enqueue(start);
-
+        if (observer) observer({.kind=GraphStepKind::DiscoverVertex, .vertex=start});
         while (!pending.empty()) {
             const VertexID current = pending.front();
             pending.dequeue();
             order.append(current);
+            if (observer) observer({.kind=GraphStepKind::VisitVertex, .vertex=current});
             const auto neighbors = get_neighbors(current);
             for (std::size_t i = 0; i < neighbors.size(); ++i) {
                 const VertexID& next = neighbors.get(i);
+                if (observer) observer({.kind=GraphStepKind::ExamineEdge, .from=current, .to=next});
                 if (!visited.contains_key(next)) {
                     visited.add(next, true);
                     pending.enqueue(next);
+                    if (observer) observer({.kind=GraphStepKind::DiscoverVertex, .vertex=next});
                 }
             }
+            if (observer) observer({.kind=GraphStepKind::FinishVertex, .vertex=current});
         }
+        if (observer) observer({.kind=GraphStepKind::Complete, .number=order.size()});
         return order;
     }
-    ArraySequence<VertexID> DFS(const VertexID& start) const {
-        if (!contains_vertex(start)) throw std::out_of_range("start vertex not found");
 
+    ArraySequence<VertexID> DFS(const VertexID& start, const GraphObserver<VertexID, Weight>& observer = {}) const {
+        require_vertex(start);
+        if (observer) observer({.kind=GraphStepKind::Begin});
         ArraySequence<VertexID> order;
         AvlDictionary<VertexID, bool> visited;
         Stack<VertexID> pending;
         pending.push(start);
-
+        if (observer) observer({.kind=GraphStepKind::DiscoverVertex, .vertex=start});
         while (!pending.empty()) {
             const VertexID current = pending.top();
             pending.pop();
             if (visited.contains_key(current)) continue;
             visited.add(current, true);
             order.append(current);
-
+            if (observer) observer({.kind=GraphStepKind::VisitVertex, .vertex=current});
             const auto neighbors = get_neighbors(current);
             for (std::size_t i = neighbors.size(); i > 0; --i) {
                 const VertexID& next = neighbors.get(i - 1);
-                if (!visited.contains_key(next)) pending.push(next);
+                if (observer) observer({.kind=GraphStepKind::ExamineEdge, .from=current, .to=next});
+                if (!visited.contains_key(next)) {
+                    pending.push(next);
+                    if (observer) observer({.kind=GraphStepKind::DiscoverVertex, .vertex=next});
+                }
             }
+            if (observer) observer({.kind=GraphStepKind::FinishVertex, .vertex=current});
         }
+        if (observer) observer({.kind=GraphStepKind::Complete, .number=order.size()});
         return order;
     }
-    PathResult<VertexID, Weight> Dijkstra(const VertexID& start, const VertexID& finish) const
-        requires NumericPathWeight<Weight> {
+
+    PathResult<VertexID, Weight> Dijkstra(const VertexID& start, const VertexID& finish,
+        const GraphObserver<VertexID, Weight>& observer = {}) const requires NumericPathWeight<Weight> {
         require_vertex(start);
         require_vertex(finish);
         validate_path_weights(true);
+        if (observer) observer({.kind=GraphStepKind::Begin});
         AvlDictionary<VertexID, Weight> distances;
         AvlDictionary<VertexID, VertexID> predecessors;
         AvlDictionary<VertexID, bool> settled;
         distances.add(start, Weight{});
-
+        if (observer) observer({.kind=GraphStepKind::UpdateDistance, .vertex=start, .value=Weight{}});
         while (true) {
             bool found = false;
             VertexID current{};
@@ -410,6 +441,7 @@ public:
             });
             if (!found) break;
             settled.add(current, true);
+            if (observer) observer({.kind=GraphStepKind::VisitVertex, .vertex=current, .value=nearest});
             if (EquivalentVertexIds(current, finish)) break;
             edges_.for_each([&](const Key& key, const Weights& weights) {
                 const VertexID* next = nullptr;
@@ -417,69 +449,95 @@ public:
                 else if (!directed_ && EquivalentVertexIds(key.to, current)) next = &key.from;
                 if (!next || settled.contains_key(*next)) return;
                 for (std::size_t i = 0; i < weights.size(); ++i) {
-                    relax_path_edge(distances, predecessors, current, *next, weights.get(i));
+                    if (observer) observer({.kind=GraphStepKind::ExamineEdge, .from=current, .to=*next, .edge_index=i, .value=weights.get(i)});
+                    if (relax_path_edge(distances, predecessors, current, *next, weights.get(i)) && observer) {
+                        observer({.kind=GraphStepKind::UpdateDistance, .vertex=*next, .from=current, .to=*next, .edge_index=i, .value=distances.get(*next)});
+                    }
                 }
             });
+            if (observer) observer({.kind=GraphStepKind::FinishVertex, .vertex=current});
         }
-        return recover_path(start, finish, distances, predecessors);
+        return recover_path(start, finish, distances, predecessors, observer);
     }
 
-    PathResult<VertexID, Weight> BellmanFord(const VertexID& start, const VertexID& finish) const
-        requires NumericPathWeight<Weight> {
+    PathResult<VertexID, Weight> BellmanFord(const VertexID& start, const VertexID& finish,
+        const GraphObserver<VertexID, Weight>& observer = {}) const requires NumericPathWeight<Weight> {
         require_vertex(start);
         require_vertex(finish);
         validate_path_weights(false);
+        if (observer) observer({.kind=GraphStepKind::Begin});
         AvlDictionary<VertexID, Weight> distances;
         AvlDictionary<VertexID, VertexID> predecessors;
         distances.add(start, Weight{});
+        if (observer) observer({.kind=GraphStepKind::UpdateDistance, .vertex=start, .value=Weight{}});
         for (std::size_t pass = 1; pass < vertex_count(); ++pass) {
+            if (observer) observer({.kind=GraphStepKind::BeginPass, .number=pass});
             bool changed = false;
-            for_each_path_edge([&](const VertexID& from, const VertexID& to, const Weight& weight) {
-                if (relax_path_edge(distances, predecessors, from, to, weight)) changed = true;
+            for_each_path_edge([&](const VertexID& from, const VertexID& to, const Weight& weight, std::size_t index) {
+                if (!distances.contains_key(from)) return;
+                if (observer) observer({.kind=GraphStepKind::ExamineEdge, .from=from, .to=to, .edge_index=index, .value=weight});
+                if (relax_path_edge(distances, predecessors, from, to, weight)) {
+                    changed = true;
+                    if (observer) observer({.kind=GraphStepKind::UpdateDistance, .vertex=to, .from=from, .to=to, .edge_index=index, .value=distances.get(to)});
+                }
             });
             if (!changed) break;
         }
-        for_each_path_edge([&](const VertexID& from, const VertexID& to, const Weight& weight) {
+        for_each_path_edge([&](const VertexID& from, const VertexID& to, const Weight& weight, std::size_t index) {
             if (can_relax_path_edge(distances, from, to, weight)) {
+                if (observer) observer({.kind=GraphStepKind::Cycle, .vertex=to, .from=from, .to=to, .edge_index=index});
                 throw std::domain_error("reachable negative cycle");
             }
         });
-        return recover_path(start, finish, distances, predecessors);
+        return recover_path(start, finish, distances, predecessors, observer);
     }
 
-    ArraySequence<VertexID> TopologicalSort() const {
+    ArraySequence<VertexID> TopologicalSort(const GraphObserver<VertexID, Weight>& observer = {}) const {
         if (!directed_) throw std::invalid_argument("topological sort requires a directed graph");
-
+        if (observer) observer({.kind=GraphStepKind::Begin});
         AvlDictionary<VertexID, std::size_t> incoming;
         vertices_.for_each([&](const VertexID& id, const VertexData&) { incoming.add(id, 0); });
-        edges_.for_each([&](const Key& key, const Weights& weights) {
-            incoming.get(key.to) += weights.size();
-        });
-
+        edges_.for_each([&](const Key& key, const Weights& weights) { incoming.get(key.to) += weights.size(); });
         Queue<VertexID> ready;
         vertices_.for_each([&](const VertexID& id, const VertexData&) {
-            if (incoming.get(id) == 0) ready.enqueue(id);
+            if (incoming.get(id) == 0) {
+                ready.enqueue(id);
+                if (observer) observer({.kind=GraphStepKind::DiscoverVertex, .vertex=id});
+            }
         });
         ArraySequence<VertexID> order;
         while (!ready.empty()) {
             const VertexID current = ready.front();
             ready.dequeue();
             order.append(current);
+            if (observer) observer({.kind=GraphStepKind::VisitVertex, .vertex=current, .number=order.size()});
             edges_.for_each([&](const Key& key, const Weights& weights) {
                 if (EquivalentVertexIds(key.from, current)) {
+                    if (observer) observer({.kind=GraphStepKind::ExamineEdge, .from=key.from, .to=key.to});
                     auto& count = incoming.get(key.to);
                     count -= weights.size();
-                    if (count == 0) ready.enqueue(key.to);
+                    if (count == 0) {
+                        ready.enqueue(key.to);
+                        if (observer) observer({.kind=GraphStepKind::DiscoverVertex, .vertex=key.to});
+                    }
                 }
             });
+            if (observer) observer({.kind=GraphStepKind::FinishVertex, .vertex=current});
         }
-        if (order.size() != vertex_count()) throw std::domain_error("graph contains a directed cycle");
+        if (order.size() != vertex_count()) {
+            if (observer) vertices_.for_each([&](const VertexID& id, const VertexData&) {
+                if (incoming.get(id) > 0) observer({.kind=GraphStepKind::Cycle, .vertex=id});
+            });
+            throw std::domain_error("graph contains a directed cycle");
+        }
+        if (observer) observer({.kind=GraphStepKind::Complete, .number=order.size()});
         return order;
     }
-    SpanningForestResult<VertexID, Weight> Kruskal() const requires NumericPathWeight<Weight> {
+
+    SpanningForestResult<VertexID, Weight> Kruskal(const GraphObserver<VertexID, Weight>& observer = {}) const requires NumericPathWeight<Weight> {
         if (directed_) throw std::invalid_argument("Kruskal requires an undirected graph");
         validate_path_weights(false);
-
+        if (observer) observer({.kind=GraphStepKind::Begin});
         AvlDictionary<VertexID, std::size_t> indices;
         vertices_.for_each([&](const VertexID& id, const VertexData&) {
             const std::size_t index = indices.size();
@@ -488,29 +546,31 @@ public:
         ArraySequence<WeightedEdge<VertexID, Weight>> candidates;
         edges_.for_each([&](const Key& key, const Weights& weights) {
             if (EquivalentVertexIds(key.from, key.to)) return;
-            for (std::size_t i = 0; i < weights.size(); ++i) {
-                candidates.append({key.from, key.to, weights.get(i)});
-            }
+            for (std::size_t i = 0; i < weights.size(); ++i) candidates.append({key.from, key.to, weights.get(i), i});
         });
         sort_forest_edges(candidates);
-
         graph_detail::DisjointSet components(vertex_count());
         SpanningForestResult<VertexID, Weight> result;
         for (std::size_t i = 0; i < candidates.size(); ++i) {
             const auto& edge = candidates.get(i);
+            if (observer) observer({.kind=GraphStepKind::ExamineEdge, .from=edge.from, .to=edge.to, .edge_index=edge.edge_index, .value=edge.weight});
             if (components.unite(indices.get(edge.from), indices.get(edge.to))) {
                 result.total_weight = add_path_weights(result.total_weight, edge.weight);
                 result.edges.append(edge);
-            }
+                if (observer) observer({.kind=GraphStepKind::AcceptEdge, .from=edge.from, .to=edge.to, .edge_index=edge.edge_index, .value=edge.weight});
+            } else if (observer) observer({.kind=GraphStepKind::RejectEdge, .from=edge.from, .to=edge.to, .edge_index=edge.edge_index});
             if (components.component_count() == 1) break;
         }
         result.component_count = components.component_count();
+        if (observer) observer({.kind=GraphStepKind::Complete, .value=result.total_weight, .number=result.component_count});
         return result;
     }
 
-    ColoringResult<VertexID> GreedyColoring() const {
-        edges_.for_each([](const Key& key, const Weights&) {
+    ColoringResult<VertexID> GreedyColoring(const GraphObserver<VertexID, Weight>& observer = {}) const {
+        if (observer) observer({.kind=GraphStepKind::Begin});
+        edges_.for_each([&](const Key& key, const Weights&) {
             if (EquivalentVertexIds(key.from, key.to)) {
+                if (observer) observer({.kind=GraphStepKind::Cycle, .vertex=key.from, .from=key.from, .to=key.to});
                 throw std::domain_error("a graph with a self-loop cannot be properly colored");
             }
         });
@@ -519,11 +579,13 @@ public:
         std::size_t stamp = 0;
         vertices_.for_each([&](const VertexID& id, const VertexData&) {
             ++stamp;
+            if (observer) observer({.kind=GraphStepKind::VisitVertex, .vertex=id});
             edges_.for_each([&](const Key& key, const Weights&) {
                 const VertexID* neighbor = nullptr;
                 if (EquivalentVertexIds(key.from, id)) neighbor = &key.to;
                 else if (EquivalentVertexIds(key.to, id)) neighbor = &key.from;
                 if (neighbor && result.colors.contains_key(*neighbor)) {
+                    if (observer) observer({.kind=GraphStepKind::ExamineEdge, .from=key.from, .to=key.to});
                     forbidden.get(result.colors.get(*neighbor)) = stamp;
                 }
             });
@@ -531,7 +593,10 @@ public:
             while (forbidden.get(color) == stamp) ++color;
             result.colors.add(id, color);
             if (color >= result.color_count) result.color_count = color + 1;
+            if (observer) observer({.kind=GraphStepKind::AssignColor, .vertex=id, .number=color});
+            if (observer) observer({.kind=GraphStepKind::FinishVertex, .vertex=id});
         });
+        if (observer) observer({.kind=GraphStepKind::Complete, .number=result.color_count});
         return result;
     }
 
