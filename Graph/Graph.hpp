@@ -7,6 +7,9 @@
 #include <utility>
 
 #include "GraphTypes.hpp"
+#include "ColoringResult.hpp"
+#include "DisjointSet.hpp"
+#include "SpanningForestResult.hpp"
 #include "PathResult.hpp"
 #include "../Dictionary/AVLDictionary.hpp"
 #include "../Queue/Queue.hpp"
@@ -108,6 +111,32 @@ private:
         for (std::size_t i = reversed.size(); i > 0; --i) result.vertices.append(reversed.get(i - 1));
         result.reachable = true;
         return result;
+    }
+
+    static void sort_forest_edges(ArraySequence<WeightedEdge<VertexID, Weight>>& edges)
+        requires NumericPathWeight<Weight> {
+        const auto less = [](const auto& left, const auto& right) {
+            if (left.weight < right.weight) return true;
+            if (right.weight < left.weight) return false;
+            if (left.from < right.from) return true;
+            if (right.from < left.from) return false;
+            return left.to < right.to;
+        };
+        // Build a max heap, then move its largest edge to the end repeatedly.
+        const auto sift_down = [&](std::size_t root, std::size_t count) {
+            while (root < count / 2) {
+                std::size_t child = root * 2 + 1;
+                if (child + 1 < count && less(edges.get(child), edges.get(child + 1))) ++child;
+                if (!less(edges.get(root), edges.get(child))) break;
+                std::swap(edges.get(root), edges.get(child));
+                root = child;
+            }
+        };
+        for (std::size_t i = edges.size() / 2; i > 0; --i) sift_down(i - 1, edges.size());
+        for (std::size_t count = edges.size(); count > 1; --count) {
+            std::swap(edges.get(0), edges.get(count - 1));
+            sift_down(0, count - 1);
+        }
     }
 
     void require_vertex(const VertexID& id) const {
@@ -447,4 +476,63 @@ public:
         if (order.size() != vertex_count()) throw std::domain_error("graph contains a directed cycle");
         return order;
     }
+    SpanningForestResult<VertexID, Weight> Kruskal() const requires NumericPathWeight<Weight> {
+        if (directed_) throw std::invalid_argument("Kruskal requires an undirected graph");
+        validate_path_weights(false);
+
+        AvlDictionary<VertexID, std::size_t> indices;
+        vertices_.for_each([&](const VertexID& id, const VertexData&) {
+            const std::size_t index = indices.size();
+            indices.add(id, index);
+        });
+        ArraySequence<WeightedEdge<VertexID, Weight>> candidates;
+        edges_.for_each([&](const Key& key, const Weights& weights) {
+            if (EquivalentVertexIds(key.from, key.to)) return;
+            for (std::size_t i = 0; i < weights.size(); ++i) {
+                candidates.append({key.from, key.to, weights.get(i)});
+            }
+        });
+        sort_forest_edges(candidates);
+
+        graph_detail::DisjointSet components(vertex_count());
+        SpanningForestResult<VertexID, Weight> result;
+        for (std::size_t i = 0; i < candidates.size(); ++i) {
+            const auto& edge = candidates.get(i);
+            if (components.unite(indices.get(edge.from), indices.get(edge.to))) {
+                result.total_weight = add_path_weights(result.total_weight, edge.weight);
+                result.edges.append(edge);
+            }
+            if (components.component_count() == 1) break;
+        }
+        result.component_count = components.component_count();
+        return result;
+    }
+
+    ColoringResult<VertexID> GreedyColoring() const {
+        edges_.for_each([](const Key& key, const Weights&) {
+            if (EquivalentVertexIds(key.from, key.to)) {
+                throw std::domain_error("a graph with a self-loop cannot be properly colored");
+            }
+        });
+        ColoringResult<VertexID> result;
+        DynamicArray<std::size_t> forbidden(vertex_count());
+        std::size_t stamp = 0;
+        vertices_.for_each([&](const VertexID& id, const VertexData&) {
+            ++stamp;
+            edges_.for_each([&](const Key& key, const Weights&) {
+                const VertexID* neighbor = nullptr;
+                if (EquivalentVertexIds(key.from, id)) neighbor = &key.to;
+                else if (EquivalentVertexIds(key.to, id)) neighbor = &key.from;
+                if (neighbor && result.colors.contains_key(*neighbor)) {
+                    forbidden.get(result.colors.get(*neighbor)) = stamp;
+                }
+            });
+            std::size_t color = 0;
+            while (forbidden.get(color) == stamp) ++color;
+            result.colors.add(id, color);
+            if (color >= result.color_count) result.color_count = color + 1;
+        });
+        return result;
+    }
+
 };
