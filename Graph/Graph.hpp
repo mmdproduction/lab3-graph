@@ -6,10 +6,48 @@
 
 #include "GraphTypes.hpp"
 #include "../Dictionary/AVLDictionary.hpp"
+#include "../Queue/Queue.hpp"
 #include "../Sequence/ArraySequence/ArraySequence.hpp"
 
 template <ComparableVertexId VertexID, typename VertexData, typename Weight>
 class Graph {
+private:
+    AvlDictionary<VertexID, VertexData> vertices_;
+    AvlDictionary<EdgeKey<VertexID>, ArraySequence<Weight>,
+                  EdgeKeyCompare<VertexID>> edges_;
+    bool directed_;
+
+    void require_vertex(const VertexID& id) const {
+        if (!contains_vertex(id)) throw std::out_of_range("vertex not found");
+    }
+
+    ArraySequence<VertexID> collect_neighbors(const VertexID& id, bool outgoing) const {
+        require_vertex(id);
+        ArraySequence<VertexID> result;
+        edges_.for_each([&](const Key& key, const Weights&) {
+            const VertexID& source = outgoing ? key.from : key.to;
+            const VertexID& target = outgoing ? key.to : key.from;
+            if (EquivalentVertexIds(source, id)) result.append(target);
+            else if (!directed_ && EquivalentVertexIds(target, id)) result.append(source);
+        });
+        return result;
+    }
+
+    std::size_t count_connections(const VertexID& id, bool outgoing) const {
+        require_vertex(id);
+        std::size_t result = 0;
+        edges_.for_each([&](const Key& key, const Weights& weights) {
+            if (directed_) {
+                const VertexID& endpoint = outgoing ? key.from : key.to;
+                if (EquivalentVertexIds(endpoint, id)) result += weights.size();
+            } else {
+                if (EquivalentVertexIds(key.from, id)) result += weights.size();
+                if (EquivalentVertexIds(key.to, id)) result += weights.size();
+            }
+        });
+        return result;
+    }
+
 public:
     using Key = EdgeKey<VertexID>;
     using Weights = ArraySequence<Weight>;
@@ -177,39 +215,31 @@ public:
         vertices_.clear();
     }
 
-private:
-    void require_vertex(const VertexID& id) const {
-        if (!contains_vertex(id)) throw std::out_of_range("vertex not found");
-    }
 
-    ArraySequence<VertexID> collect_neighbors(const VertexID& id, bool outgoing) const {
-        require_vertex(id);
-        ArraySequence<VertexID> result;
-        edges_.for_each([&](const Key& key, const Weights&) {
-            const VertexID& source = outgoing ? key.from : key.to;
-            const VertexID& target = outgoing ? key.to : key.from;
-            if (EquivalentVertexIds(source, id)) result.append(target);
-            else if (!directed_ && EquivalentVertexIds(target, id)) result.append(source);
-        });
-        return result;
-    }
+    //algoritms (((((CODEX))))) P.S. GEMINI
 
-    std::size_t count_connections(const VertexID& id, bool outgoing) const {
-        require_vertex(id);
-        std::size_t result = 0;
-        edges_.for_each([&](const Key& key, const Weights& weights) {
-            if (directed_) {
-                const VertexID& endpoint = outgoing ? key.from : key.to;
-                if (EquivalentVertexIds(endpoint, id)) result += weights.size();
-            } else {
-                if (EquivalentVertexIds(key.from, id)) result += weights.size();
-                if (EquivalentVertexIds(key.to, id)) result += weights.size();
+    ArraySequence<VertexID> BFS(const VertexID& start) const {
+        if (!contains_vertex(start)) throw std::out_of_range("start vertex not found");
+
+        ArraySequence<VertexID> order;
+        AvlDictionary<VertexID, bool> visited;
+        Queue<VertexID> pending;
+        visited.add(start, true);
+        pending.enqueue(start);
+
+        while (!pending.empty()) {
+            const VertexID current = pending.front();
+            pending.dequeue();
+            order.append(current);
+            const auto neighbors = get_neighbors(current);
+            for (std::size_t i = 0; i < neighbors.size(); ++i) {
+                const VertexID& next = neighbors.get(i);
+                if (!visited.contains_key(next)) {
+                    visited.add(next, true);
+                    pending.enqueue(next);
+                }
             }
-        });
-        return result;
+        }
+        return order;
     }
-
-    AvlDictionary<VertexID, VertexData> vertices_;
-    AvlDictionary<Key, Weights, EdgeKeyCompare<VertexID>> edges_;
-    bool directed_;
 };

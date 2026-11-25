@@ -15,10 +15,28 @@ target_include_directories(graph INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/Extern/AVL/AVL"
 )
 
-
-add_subdirectory(Extern/GoogleTest EXCLUDE_FROM_ALL)
-add_executable(graph_tests Tests/GraphTests.cpp)
-target_link_libraries(graph_tests PRIVATE Lab3::Graph GTest::gtest_main)
-include(GoogleTest)
-gtest_discover_tests(graph_tests DISCOVERY_TIMEOUT 30)
-
+include(CTest)
+if(BUILD_TESTING)
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Extern/GoogleTest/CMakeLists.txt")
+        message(FATAL_ERROR "GoogleTest is missing. Run: git submodule update --init --recursive")
+    endif()
+    set(BUILD_GMOCK OFF CACHE BOOL "Build Google Mock" FORCE)
+    set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest" FORCE)
+    if(MSVC)
+        set(gtest_force_shared_crt ON CACHE BOOL "Use shared CRT" FORCE)
+    endif()
+    add_subdirectory(Extern/GoogleTest EXCLUDE_FROM_ALL)
+    add_executable(graph_tests
+        Tests/GraphTests.cpp
+        Tests/SequenceQueueTests.cpp
+        Tests/GraphAlgorithmsTests.cpp
+    )
+    target_link_libraries(graph_tests PRIVATE Lab3::Graph GTest::gtest_main)
+    if(MSVC)
+        target_compile_options(graph_tests PRIVATE /W4 /permissive-)
+    else()
+        target_compile_options(graph_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    include(GoogleTest)
+    gtest_discover_tests(graph_tests DISCOVERY_TIMEOUT 30)
+endif()
