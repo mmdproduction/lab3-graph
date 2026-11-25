@@ -23,6 +23,7 @@ public:
     T& get(std::size_t index) override { return storage_.get(index); }
     const T& get(std::size_t index) const override { return storage_.get(index); }
 
+    void prepend(const T& value) { storage_.prepend(value); }
     void append(const T& value) override { storage_.append(value); }
     void remove_at(std::size_t index) override { storage_.remove_at(index); }
     void clear() noexcept override { storage_.clear(); }

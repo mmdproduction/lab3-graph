@@ -63,8 +63,15 @@ public:
     T& get(std::size_t index) { return node_at(index)->value; }
     const T& get(std::size_t index) const { return node_at(index)->value; }
 
+    void prepend(const T& value) {
+        Node* node = new Node(value);
+        node->next = head_;
+        head_ = node;
+        if (!tail_) tail_ = node;
+        ++size_;
+    }
+
     void append(const T& value) {
-        // Construct the payload before changing any links.
         Node* node = new Node(value);
         if (tail_) tail_->next = node;
         else head_ = node;
@@ -84,7 +91,6 @@ public:
     }
 
     void clear() noexcept {
-        // Iterative deletion avoids recursive destruction of a long chain.
         while (head_) {
             Node* removed = head_;
             head_ = head_->next;

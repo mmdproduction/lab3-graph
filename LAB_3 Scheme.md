@@ -40,7 +40,6 @@ rectangle "Ребро" as Edge
 
 Graph --> Vertex : содержит
 Graph --> Edge : содержит
-
 Edge --> Vertex : соединяет
 
 @enduml

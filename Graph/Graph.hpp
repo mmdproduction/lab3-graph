@@ -7,6 +7,7 @@
 #include "GraphTypes.hpp"
 #include "../Dictionary/AVLDictionary.hpp"
 #include "../Queue/Queue.hpp"
+#include "../Stack/Stack.hpp"
 #include "../Sequence/ArraySequence/ArraySequence.hpp"
 
 template <ComparableVertexId VertexID, typename VertexData, typename Weight>
@@ -238,6 +239,29 @@ public:
                     visited.add(next, true);
                     pending.enqueue(next);
                 }
+            }
+        }
+        return order;
+    }
+    ArraySequence<VertexID> DFS(const VertexID& start) const {
+        if (!contains_vertex(start)) throw std::out_of_range("start vertex not found");
+
+        ArraySequence<VertexID> order;
+        AvlDictionary<VertexID, bool> visited;
+        Stack<VertexID> pending;
+        pending.push(start);
+
+        while (!pending.empty()) {
+            const VertexID current = pending.top();
+            pending.pop();
+            if (visited.contains_key(current)) continue;
+            visited.add(current, true);
+            order.append(current);
+
+            const auto neighbors = get_neighbors(current);
+            for (std::size_t i = neighbors.size(); i > 0; --i) {
+                const VertexID& next = neighbors.get(i - 1);
+                if (!visited.contains_key(next)) pending.push(next);
             }
         }
         return order;

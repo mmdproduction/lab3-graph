@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "Queue/Queue.hpp"
+#include "Stack/Stack.hpp"
 #include "Sequence/LinkedList/LinkedList.hpp"
 #include "Sequence/ListSequence/ListSequence.hpp"
 
@@ -152,5 +153,55 @@ TEST_F(LinkedOwnership, FailedEnqueuePreservesQueueAndDequeueDoesNotCopyPayload)
     EXPECT_THROW(queue.enqueue(value), std::runtime_error);
     EXPECT_EQ(queue.size(), 1u); EXPECT_EQ(queue.front().value, 1);
     EXPECT_NO_THROW(queue.dequeue()); EXPECT_TRUE(queue.empty()); Counted::copy_budget = -1;
+}
+TEST(LinkedList, PrependMaintainsHeadTailAndSupportsAliasing) {
+    LinkedList<int> list;
+    list.prepend(2); list.append(3); list.prepend(1);
+    EXPECT_EQ(list.size(), 3u); EXPECT_EQ(list.get(0), 1); EXPECT_EQ(list.get(2), 3);
+    list.prepend(list.get(2)); EXPECT_EQ(list.get(0), 3); EXPECT_EQ(list.size(), 4u);
+    while (!list.empty()) list.remove_at(0);
+    list.prepend(4); list.append(5); EXPECT_EQ(list.get(1), 5);
+}
+
+TEST(ListSequence, PrependDelegatesWithoutChangingSequenceInterface) {
+    ListSequence<int> sequence;
+    sequence.prepend(2); sequence.prepend(1); sequence.append(3);
+    Sequence<int>& view = sequence;
+    EXPECT_EQ(view.get(0), 1); EXPECT_EQ(view.get(2), 3);
+    view.remove_at(0); EXPECT_EQ(view.get(0), 2);
+}
+
+TEST(Stack, PreservesLifoAndRejectsEmptyAccess) {
+    Stack<int> stack;
+    EXPECT_TRUE(stack.empty()); EXPECT_THROW(stack.top(), std::out_of_range);
+    EXPECT_THROW(stack.pop(), std::out_of_range);
+    stack.push(1); stack.push(2); stack.push(3);
+    EXPECT_EQ(stack.size(), 3u); EXPECT_EQ(stack.top(), 3);
+    stack.pop(); EXPECT_EQ(stack.top(), 2); stack.top() = 8;
+    const auto& view = stack; EXPECT_EQ(view.top(), 8);
+    stack.pop(); EXPECT_EQ(stack.top(), 1); stack.pop(); EXPECT_TRUE(stack.empty());
+    stack.push(9); stack.clear(); stack.push(10); EXPECT_EQ(stack.top(), 10);
+}
+
+TEST(Stack, CopiesMovesAndNonDefaultPayloadsWorkIndependently) {
+    Stack<CopyOnly> source; source.push(CopyOnly(1)); source.push(CopyOnly(2));
+    auto copy = source; copy.pop(); EXPECT_EQ(source.top().value, 2); EXPECT_EQ(copy.top().value, 1);
+    Stack<CopyOnly> assigned; assigned = source;
+    Stack<CopyOnly> moved(std::move(copy)); EXPECT_TRUE(copy.empty()); copy.push(CopyOnly(3));
+    assigned = std::move(moved); EXPECT_TRUE(moved.empty()); EXPECT_EQ(assigned.top().value, 1);
+    assigned.swap(source); EXPECT_EQ(assigned.top().value, 2); EXPECT_EQ(source.top().value, 1);
+}
+
+TEST_F(LinkedOwnership, FailedStackPushPreservesHeadAndTailAndPopDoesNotCopy) {
+    LinkedList<Counted> list; list.append(Counted(7)); Counted value(2);
+    Counted::copy_budget = 0;
+    EXPECT_THROW(list.prepend(value), std::runtime_error); Counted::copy_budget = -1;
+    EXPECT_EQ(list.size(), 1u); EXPECT_EQ(list.get(0).value, 7);
+    list.append(Counted(8)); EXPECT_EQ(list.get(1).value, 8);
+    Stack<Counted> stack; stack.push(Counted(1));
+    Counted::copy_budget = 0;
+    EXPECT_THROW(stack.push(value), std::runtime_error);
+    EXPECT_EQ(stack.size(), 1u); EXPECT_EQ(stack.top().value, 1);
+    EXPECT_NO_THROW(stack.pop()); EXPECT_TRUE(stack.empty()); Counted::copy_budget = -1;
 }
 }  // namespace
