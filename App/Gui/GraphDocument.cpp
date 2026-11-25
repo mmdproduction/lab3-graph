@@ -7,6 +7,9 @@
 #include <cmath>
 #include <stdexcept>
 #include <utility>
+#include <algorithm>
+#include <random>
+#include <numbers>
 
 namespace {
 void ValidateName(const std::string& id) {
@@ -206,6 +209,47 @@ void GraphDocument::load_json(const QByteArray& bytes) {
         replacement.add_edge(edge.value("from").toString().toStdString(),
                              edge.value("to").toString().toStdString(),
                              edge.value("weight").toDouble());
+    }
+    swap(replacement);
+}
+
+std::size_t GraphDocument::max_generated_edges(std::size_t vertices, bool directed) {
+    if (vertices > kMaxVertices) {
+        throw std::invalid_argument("Количество вершин должно быть от 0 до 50.");
+    }
+    if (vertices < 2) return 0;
+    return std::min(kMaxEdges, vertices * (vertices - 1) / (directed ? 1 : 2));
+}
+void GraphDocument::generate(std::size_t vertices, std::size_t edges, bool directed,
+                             std::uint32_t seed) {
+    const auto maximum = max_generated_edges(vertices, directed);
+    if (edges > maximum) {
+        throw std::invalid_argument(
+            "Количество рёбер превышает предел для выбранного числа вершин и типа графа.");
+    }
+    GraphDocument replacement;
+    replacement.reset(directed);
+    const double radius = std::max(220.0, vertices * 11.0);
+    for (std::size_t i = 0; i < vertices; ++i) {
+        const double angle = 2 * std::numbers::pi * i / vertices - std::numbers::pi / 2;
+        replacement.add_vertex(std::to_string(i + 1),
+                               {radius * std::cos(angle), radius * std::sin(angle)});
+    }
+    ArraySequence<EdgeKey<std::size_t>> pairs;
+    for (std::size_t from = 0; from < vertices; ++from) {
+        for (std::size_t to = 0; to < vertices; ++to) {
+            if (from != to && (directed || from < to)) pairs.append({from, to});
+        }
+    }
+    std::mt19937 random(seed);
+    std::uniform_int_distribution<int> weight(1, 9);
+    // Partial Fisher–Yates samples exactly the requested number without replacement.
+    for (std::size_t i = 0; i < edges; ++i) {
+        std::uniform_int_distribution<std::size_t> choice(i, pairs.size() - 1);
+        std::swap(pairs.get(i), pairs.get(choice(random)));
+        const auto& pair = pairs.get(i);
+        replacement.add_edge(std::to_string(pair.from + 1), std::to_string(pair.to + 1),
+                             weight(random));
     }
     swap(replacement);
 }

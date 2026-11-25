@@ -150,3 +150,65 @@ TEST(TraceRunner, ParallelShortestPathMarksOnlyChosenEdge) {
         }
     EXPECT_EQ(selected, 1u);
 }
+
+TEST(GraphGenerator, ExactCountsSimpleTopologyAndPositiveWeights) {
+    for (bool directed : {false, true}) {
+        GraphDocument doc;
+        doc.generate(12, 25, directed, 20261125);
+        EXPECT_EQ(doc.graph().vertex_count(), 12u);
+        EXPECT_EQ(doc.graph().edge_count(), 25u);
+        EXPECT_EQ(doc.graph().is_directed(), directed);
+        const auto keys = doc.graph().edge_keys();
+        EXPECT_EQ(keys.size(), 25u);
+        for (std::size_t i = 0; i < keys.size(); ++i) {
+            const auto& key = keys.get(i);
+            EXPECT_NE(key.from, key.to);
+            const auto& weights = doc.graph().get_edge_weights(key.from, key.to);
+            ASSERT_EQ(weights.size(), 1u);
+            EXPECT_GE(weights.get(0), 1);
+            EXPECT_LE(weights.get(0), 9);
+        }
+        const auto ids = doc.graph().vertex_ids();
+        for (std::size_t i = 0; i < ids.size(); ++i) {
+            EXPECT_TRUE(std::isfinite(doc.position(ids.get(i)).x()));
+            EXPECT_TRUE(std::isfinite(doc.position(ids.get(i)).y()));
+        }
+    }
+}
+TEST(GraphGenerator, EmptySingletonCompleteAndMaximumGraphs) {
+    GraphDocument doc;
+    doc.generate(0, 0, true, 1);
+    EXPECT_EQ(doc.graph().vertex_count(), 0u);
+    EXPECT_EQ(doc.graph().edge_count(), 0u);
+    doc.generate(1, 0, false, 1);
+    EXPECT_EQ(doc.graph().vertex_count(), 1u);
+    doc.generate(3, 3, false, 1);
+    EXPECT_EQ(doc.graph().edge_count(), 3u);
+    doc.generate(3, 6, true, 1);
+    EXPECT_EQ(doc.graph().edge_count(), 6u);
+    doc.generate(50, 150, false, 1);
+    EXPECT_EQ(doc.graph().vertex_count(), 50u);
+    EXPECT_EQ(doc.graph().edge_count(), 150u);
+}
+TEST(GraphGenerator, RejectsImpossibleParametersWithoutReplacingDocument) {
+    GraphDocument doc;
+    doc.load_example(0);
+    const auto before = doc.to_json();
+    EXPECT_THROW(doc.generate(0, 1, false, 1), std::invalid_argument);
+    EXPECT_THROW(doc.generate(1, 1, true, 1), std::invalid_argument);
+    EXPECT_THROW(doc.generate(2, 2, false, 1), std::invalid_argument);
+    EXPECT_THROW(doc.generate(51, 0, false, 1), std::invalid_argument);
+    EXPECT_THROW(doc.generate(50, 151, true, 1), std::invalid_argument);
+    EXPECT_EQ(doc.to_json(), before);
+}
+TEST(GraphGenerator, SeedReproducesGraphAndGeneratedGraphCanBeSaved) {
+    GraphDocument first, second, loaded;
+    first.generate(9, 18, true, 42);
+    second.generate(9, 18, true, 42);
+    EXPECT_EQ(first.to_json(), second.to_json());
+    loaded.load_json(first.to_json());
+    EXPECT_EQ(loaded.to_json(), first.to_json());
+    EXPECT_EQ(GraphDocument::max_generated_edges(2, false), 1u);
+    EXPECT_EQ(GraphDocument::max_generated_edges(2, true), 2u);
+    EXPECT_EQ(GraphDocument::max_generated_edges(0, true), 0u);
+}

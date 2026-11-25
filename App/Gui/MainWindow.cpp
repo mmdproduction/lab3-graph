@@ -26,6 +26,13 @@
 #include <QStatusBar>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QSpinBox>
+#include <QStyle>
+#include <QStyleOptionSpinBox>
+#include <QRandomGenerator>
 #include <stdexcept>
 #include <cmath>
 #include <limits>
@@ -37,7 +44,7 @@ protected:
         QComboBox::paintEvent(event);
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
-        painter.setPen(QPen(isEnabled() ? QColor("#bacbe1") : QColor("#62738b"), 1.5, Qt::SolidLine,
+        painter.setPen(QPen(isEnabled() ? QColor("#dddddd") : QColor("#777777"), 1.5, Qt::SolidLine,
                             Qt::RoundCap, Qt::RoundJoin));
         const QPointF center(width() - 14, height() / 2.0);
         painter.drawLine(center + QPointF(-3, -1.5), center + QPointF(0, 1.5));
@@ -46,6 +53,30 @@ protected:
 
 public:
     explicit ChevronComboBox(QWidget* parent = nullptr) : QComboBox(parent) {}
+};
+class CountSpinBox : public QSpinBox {
+protected:
+    void paintEvent(QPaintEvent* event) override {
+        QSpinBox::paintEvent(event);
+        QStyleOptionSpinBox option;
+        initStyleOption(&option);
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        const auto draw_arrow = [&](QStyle::SubControl control, bool up, bool enabled) {
+            const auto rect = style()->subControlRect(QStyle::CC_SpinBox, &option, control, this);
+            const QPointF center = rect.center();
+            painter.setPen(QPen(enabled ? QColor("#dedede") : QColor("#777777"), 1.4, Qt::SolidLine,
+                                Qt::RoundCap, Qt::RoundJoin));
+            const double direction = up ? -1.0 : 1.0;
+            painter.drawLine(center + QPointF(-2.5, -direction), center + QPointF(0, direction));
+            painter.drawLine(center + QPointF(0, direction), center + QPointF(2.5, -direction));
+        };
+        draw_arrow(QStyle::SC_SpinBoxUp, true, stepEnabled().testFlag(StepUpEnabled));
+        draw_arrow(QStyle::SC_SpinBoxDown, false, stepEnabled().testFlag(StepDownEnabled));
+    }
+
+public:
+    explicit CountSpinBox(QWidget* parent = nullptr) : QSpinBox(parent) {}
 };
 QLabel* Label(const QString& text, const char* name, QWidget* parent = nullptr) {
     auto* label = new QLabel(text, parent);
@@ -106,23 +137,20 @@ void MainWindow::build_ui() {
     outer->setContentsMargins(24, 18, 24, 12);
     outer->setSpacing(16);
     auto* header = new QHBoxLayout;
-    auto* logo = Label("◈", "brand");
-    logo->setStyleSheet("color:#a6bddb;font-size:33px;");
-    header->addWidget(logo);
-    auto* brand = new QVBoxLayout;
-    brand->setSpacing(2);
-    brand->addWidget(Label("Graph Studio", "brand"));
-    brand->addWidget(Label("ЛАБОРАТОРИЯ АЛГОРИТМОВ", "eyebrow"));
-    header->addLayout(brand);
     header->addStretch();
+    auto* generate =
+        Button("Сгенерировать", ui::Icon::NewGraph, "Создать случайный граф по параметрам");
+    generate->setObjectName("generateGraphButton");
     auto* new_button = Button("Новый граф", ui::Icon::NewGraph, "Создать пустой граф");
     auto* open = Button("Открыть", ui::Icon::Open, "Открыть граф из JSON (Ctrl+O)");
     auto* save =
         Button("Сохранить", ui::Icon::Save, "Сохранить граф и расположение вершин (Ctrl+S)");
+    header->addWidget(generate);
     header->addWidget(new_button);
     header->addWidget(open);
     header->addWidget(save);
     outer->addLayout(header);
+    connect(generate, &QPushButton::clicked, this, [this] { generate_graph(); });
     connect(new_button, &QPushButton::clicked, this, [this] { new_graph(); });
     connect(open, &QPushButton::clicked, this, [this] { open_file(); });
     connect(save, &QPushButton::clicked, this, [this] { save_file(); });
@@ -180,7 +208,7 @@ void MainWindow::build_ui() {
     left->addWidget(legend);
     left->addSpacing(7);
     const char* labels[] = {"Текущая вершина", "Найдена / обработана", "Входит в результат"};
-    const char* colors[] = {"#d1b78e", "#92b4d7", "#91bca9"};
+    const char* colors[] = {"#e1b77a", "#82b4ef", "#84c9a7"};
     for (int i = 0; i < 3; ++i) {
         auto* row = new QHBoxLayout;
         auto* dot = Label("●", "subtle");
@@ -246,7 +274,7 @@ void MainWindow::build_ui() {
         "Двойной щелчок — вершина   ·   Перетаскивание — положение   ·   ПКМ — действия   ·   "
         "Колесо — масштаб",
         "subtle");
-    hint->setStyleSheet("font-size:10px;color:#71839d;");
+    hint->setStyleSheet("font-size:10px;color:#9a9a9a;");
     graph_layout->addWidget(hint);
     right->addWidget(card, 1);
     canvas_->create_vertex = [this](QPointF p) { add_vertex(p); };
@@ -334,7 +362,7 @@ void MainWindow::build_ui() {
     outer->addLayout(body, 1);
     auto* footer = Label(
         "Редактор: до 50 вершин и 150 рёбер. Историю можно просматривать в обе стороны.", "subtle");
-    footer->setStyleSheet("font-size:10px;color:#72839b;");
+    footer->setStyleSheet("font-size:10px;color:#939393;");
     outer->addWidget(footer);
     connect(play_, &QPushButton::clicked, this, [this] { play_pause(); });
     connect(previous, &QPushButton::clicked, this, [this] {
@@ -450,7 +478,7 @@ void MainWindow::show_frame() {
                           : runner_.size() && runner_.cursor() == runner_.size() ? "РЕЗУЛЬТАТ"
                           : runner_.cursor()                                     ? "ШАГ АЛГОРИТМА"
                                              : "ГОТОВО К ЗАПУСКУ");
-    state_label_->setStyleSheet(state.is_error ? "color:#d298a6;" : "color:#9cb9dc;");
+    state_label_->setStyleSheet(state.is_error ? "color:#e5a0b0;" : "color:#b0c9eb;");
     play_->setText(timer_->isActive()                                       ? "Пауза"
                    : runner_.cursor() && runner_.cursor() == runner_.size() ? "Повтор"
                                                                             : "Старт");
@@ -582,7 +610,7 @@ void MainWindow::report_error(const std::exception& error) {
     timer_->stop();
     show_frame();
     state_label_->setText("НЕ УДАЛОСЬ ВЫПОЛНИТЬ ДЕЙСТВИЕ");
-    state_label_->setStyleSheet("color:#d298a6;");
+    state_label_->setStyleSheet("color:#e5a0b0;");
     explanation_->setText(QString::fromUtf8(error.what()));
 }
 bool MainWindow::discard_changes() {
@@ -674,4 +702,78 @@ void MainWindow::closeEvent(QCloseEvent* event) {
         event->accept();
     else
         event->ignore();
+}
+
+void MainWindow::generate_graph() {
+    timer_->stop();
+    show_frame();
+    QDialog dialog(this);
+    dialog.setObjectName("graphGeneratorDialog");
+    dialog.setWindowTitle("Генерация графа");
+    dialog.setMinimumWidth(420);
+    auto* layout = new QVBoxLayout(&dialog);
+    layout->setContentsMargins(22, 20, 22, 20);
+    layout->setSpacing(16);
+    auto* explanation =
+        Label("Случайный граф без петель и повторяющихся рёбер. Веса — от 1 до 9.", "description");
+    explanation->setWordWrap(true);
+    layout->addWidget(explanation);
+    auto* form = new QFormLayout;
+    form->setSpacing(12);
+    auto* vertices = new CountSpinBox(&dialog);
+    vertices->setObjectName("generationVertexCount");
+    vertices->setRange(0, static_cast<int>(GraphDocument::kMaxVertices));
+    vertices->setValue(10);
+    auto* edges = new CountSpinBox(&dialog);
+    edges->setObjectName("generationEdgeCount");
+    edges->setRange(0, static_cast<int>(GraphDocument::kMaxEdges));
+    edges->setValue(15);
+    auto* direction = new ChevronComboBox(&dialog);
+    direction->setObjectName("generationDirection");
+    direction->addItems({"Неориентированный", "Ориентированный"});
+    direction->setCurrentIndex(document_.graph().is_directed() ? 1 : 0);
+    form->addRow("Количество вершин", vertices);
+    form->addRow("Количество рёбер", edges);
+    form->addRow("Тип графа", direction);
+    layout->addLayout(form);
+    auto* limits = Label("", "subtle");
+    layout->addWidget(limits);
+    auto* connectivity = Label("Связность и отсутствие циклов не гарантируются.", "subtle");
+    connectivity->setWordWrap(true);
+    layout->addWidget(connectivity);
+    const auto update_limit = [vertices, edges, direction, limits] {
+        const auto maximum = GraphDocument::max_generated_edges(
+            static_cast<std::size_t>(vertices->value()), direction->currentIndex() == 1);
+        edges->setMaximum(static_cast<int>(maximum));
+        limits->setText(QString("Для этих параметров доступно от 0 до %1 рёбер.").arg(maximum));
+    };
+    connect(vertices, &QSpinBox::valueChanged, &dialog, update_limit);
+    connect(direction, &QComboBox::currentIndexChanged, &dialog, update_limit);
+    update_limit();
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    buttons->button(QDialogButtonBox::Ok)->setText("Создать граф");
+    buttons->button(QDialogButtonBox::Ok)->setObjectName("generateConfirmButton");
+    buttons->button(QDialogButtonBox::Cancel)->setText("Отмена");
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttons);
+    if (dialog.exec() != QDialog::Accepted || !discard_changes()) return;
+    try {
+        document_.generate(static_cast<std::size_t>(vertices->value()),
+                           static_cast<std::size_t>(edges->value()), direction->currentIndex() == 1,
+                           QRandomGenerator::global()->generate());
+        invalidate_trace();
+        file_path_.clear();
+        example_index_ = -1;
+        {
+            QSignalBlocker block(examples_);
+            examples_->setCurrentIndex(-1);
+        }
+        dirty_ = true;
+        setWindowTitle("Graph Studio — сгенерированный граф[*]");
+        setWindowModified(true);
+        refresh_document(true);
+    } catch (const std::exception& error) {
+        report_error(error);
+    }
 }

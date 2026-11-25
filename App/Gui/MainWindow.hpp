@@ -49,6 +49,7 @@ private:
     void open_file();
     void save_file();
     void new_graph();
+    void generate_graph();
     bool discard_changes();
     void report_error(const std::exception& error);
 

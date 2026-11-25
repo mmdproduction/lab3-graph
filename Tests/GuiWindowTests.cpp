@@ -12,6 +12,8 @@
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QSlider>
+#include <QSpinBox>
+#include <QDialog>
 #include <QTest>
 #include <QTimer>
 #include "App/Gui/MainWindow.hpp"
@@ -250,4 +252,61 @@ TEST(GraphWindow, EditingLoadedWeightsWithoutChangesPreservesPrecisionAndRange) 
     }
     EXPECT_DOUBLE_EQ(window.document().graph().get_edge_weight("A", "B", 0), 0.00001);
     EXPECT_DOUBLE_EQ(window.document().graph().get_edge_weight("C", "D", 0), 1000000000000.0);
+}
+
+TEST(GraphWindow, GeneratorDialogUsesParametersAndInvalidatesOldAnimation) {
+    MainWindow window;
+    window.show();
+    QApplication::processEvents();
+    window.prepare_trace();
+    ASSERT_GT(window.runner().size(), 0u);
+    auto* button = window.findChild<QPushButton*>("generateGraphButton");
+    ASSERT_NE(button, nullptr);
+    bool configured = false;
+    QTimer::singleShot(0, [&] {
+        auto* dialog = QApplication::activeModalWidget();
+        if (!dialog) return;
+        auto* vertices = dialog->findChild<QSpinBox*>("generationVertexCount");
+        auto* edges = dialog->findChild<QSpinBox*>("generationEdgeCount");
+        auto* direction = dialog->findChild<QComboBox*>("generationDirection");
+        auto* confirm = dialog->findChild<QPushButton*>("generateConfirmButton");
+        if (!vertices || !edges || !direction || !confirm) return;
+        vertices->setValue(2);
+        direction->setCurrentIndex(0);
+        EXPECT_EQ(edges->maximum(), 1);
+        direction->setCurrentIndex(1);
+        EXPECT_EQ(edges->maximum(), 2);
+        vertices->setValue(8);
+        edges->setValue(12);
+        configured = true;
+        confirm->click();
+    });
+    button->click();
+    ASSERT_TRUE(configured);
+    EXPECT_EQ(window.document().graph().vertex_count(), 8u);
+    EXPECT_EQ(window.document().graph().edge_count(), 12u);
+    EXPECT_TRUE(window.document().graph().is_directed());
+    EXPECT_EQ(window.runner().size(), 0u);
+    window.choose_algorithm(Algorithm::BFS);
+    window.prepare_trace();
+    EXPECT_FALSE(window.runner().has_error());
+}
+TEST(GraphWindow, CancellingGeneratorKeepsGraphAndHistory) {
+    MainWindow window;
+    window.show();
+    QApplication::processEvents();
+    window.prepare_trace();
+    window.seek(4);
+    const auto json = window.document().to_json();
+    const auto size = window.runner().size();
+    auto* button = window.findChild<QPushButton*>("generateGraphButton");
+    ASSERT_NE(button, nullptr);
+    QTimer::singleShot(0, [] {
+        if (auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget()))
+            dialog->reject();
+    });
+    button->click();
+    EXPECT_EQ(window.document().to_json(), json);
+    EXPECT_EQ(window.runner().size(), size);
+    EXPECT_EQ(window.runner().cursor(), 4u);
 }

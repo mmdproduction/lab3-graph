@@ -30,9 +30,9 @@ private:
     std::string id_;
     VertexVisual visual_;
     bool current_ = false;
-    QColor fill_{"#263448"};
-    QColor from_{"#263448"};
-    QColor target_{"#263448"};
+    QColor fill_{"#363636"};
+    QColor from_{"#363636"};
+    QColor target_{"#363636"};
     QVariantAnimation fade_;
 
 protected:
@@ -72,11 +72,11 @@ public:
         visual_ = std::move(visual);
         current_ = current;
         target_ = visual_.color >= 0                       ? ui::Color(visual_.color)
-                  : visual_.tone == VertexTone::Path       ? QColor("#486f66")
-                  : visual_.tone == VertexTone::Error      ? QColor("#774b5b")
-                  : visual_.tone == VertexTone::Visited    ? QColor("#3a526e")
-                  : visual_.tone == VertexTone::Discovered ? QColor("#353d5a")
-                                                           : QColor("#263448");
+                  : visual_.tone == VertexTone::Path       ? QColor("#426f58")
+                  : visual_.tone == VertexTone::Error      ? QColor("#854c61")
+                  : visual_.tone == VertexTone::Visited    ? QColor("#3d5874")
+                  : visual_.tone == VertexTone::Discovered ? QColor("#50445f")
+                                                           : QColor("#363636");
         if (fill_ != target_) {
             fade_.stop();
             from_ = fill_;
@@ -90,21 +90,21 @@ public:
         p->setRenderHint(QPainter::Antialiasing);
         if (current_) {
             p->setBrush(QColor(205, 182, 142, 22));
-            p->setPen(QPen(QColor("#d1b78e"), 1.5));
+            p->setPen(QPen(QColor("#e1b77a"), 1.5));
             p->drawEllipse(QRectF(-36, -36, 72, 72));
         }
         p->setPen(Qt::NoPen);
         p->setBrush(QColor(0, 0, 0, 55));
         p->drawEllipse(QRectF(-28, -25, 56, 56));
-        const QColor border = visual_.tone == VertexTone::Error ? QColor("#d298a6")
-                              : current_                        ? QColor("#d8bf97")
+        const QColor border = visual_.tone == VertexTone::Error ? QColor("#e5a0b0")
+                              : current_                        ? QColor("#edc78f")
                               : visual_.color >= 0 ? ui::Color(visual_.color).lighter(115)
-                              : visual_.tone == VertexTone::Path ? QColor("#99c7b3")
-                                                                 : QColor("#7088a5");
+                              : visual_.tone == VertexTone::Path ? QColor("#9fdfba")
+                                                                 : QColor("#9a9a9a");
         p->setPen(QPen(border, isSelected() ? 2.8 : 1.6));
         p->setBrush(fill_);
         p->drawEllipse(QRectF(-28, -28, 56, 56));
-        p->setPen(visual_.color >= 0 ? QColor("#192635") : QColor("#edf2fa"));
+        p->setPen(visual_.color >= 0 ? QColor("#202020") : QColor("#f0f0f0"));
         QFont font("DejaVu Sans", 11, QFont::DemiBold);
         p->setFont(font);
         const QString text =
@@ -112,7 +112,7 @@ public:
         p->drawText(QRectF(-25, -15, 50, 30), Qt::AlignCenter, text);
         if (!visual_.caption.isEmpty()) {
             p->setFont(QFont("DejaVu Sans", 8));
-            p->setPen(QColor("#aebed3"));
+            p->setPen(QColor("#c3c3c3"));
             p->drawText(QRectF(-44, 36, 88, 20), Qt::AlignHCenter | Qt::AlignTop, visual_.caption);
         }
     }
@@ -186,11 +186,11 @@ public:
     }
     void paint(QPainter* p, const QStyleOptionGraphicsItem*, QWidget*) override {
         p->setRenderHint(QPainter::Antialiasing);
-        QColor color = examined_                     ? QColor("#d1b78e")
-                       : tone_ == EdgeTone::Accepted ? QColor("#9bc8b5")
-                       : tone_ == EdgeTone::Rejected ? QColor("#8c6978")
-                       : tone_ == EdgeTone::Error    ? QColor("#d298a6")
-                                                     : QColor("#596c86");
+        QColor color = examined_                     ? QColor("#e1b77a")
+                       : tone_ == EdgeTone::Accepted ? QColor("#8ed3b0")
+                       : tone_ == EdgeTone::Rejected ? QColor("#b37b8c")
+                       : tone_ == EdgeTone::Error    ? QColor("#e5a0b0")
+                                                     : QColor("#8c8c8c");
         p->setPen(QPen(color, examined_ || tone_ == EdgeTone::Accepted ? 2.8 : 1.6,
                        tone_ == EdgeTone::Rejected ? Qt::DashLine : Qt::SolidLine, Qt::RoundCap));
         p->setBrush(Qt::NoBrush);
@@ -206,10 +206,10 @@ public:
             p->setBrush(color);
             p->drawPolygon(arrow);
         }
-        p->setPen(QPen(examined_ ? QColor("#76664e") : QColor("#303c4d"), 1));
-        p->setBrush(QColor("#1a2330"));
+        p->setPen(QPen(examined_ ? QColor("#8b734b") : QColor("#484848"), 1));
+        p->setBrush(QColor("#292929"));
         p->drawRoundedRect(label_, 6, 6);
-        p->setPen(examined_ ? QColor("#e4cda8") : QColor("#bbcadf"));
+        p->setPen(examined_ ? QColor("#f0d5a5") : QColor("#e0e0e0"));
         p->setFont(QFont("DejaVu Sans", 9));
         p->drawText(label_, Qt::AlignCenter, QString::number(weight_, 'g', 4));
     }
@@ -220,7 +220,7 @@ GraphCanvas::GraphCanvas(QWidget* parent) : QGraphicsView(parent) {
     setFrameShape(QFrame::NoFrame);
     setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
     setViewportUpdateMode(FullViewportUpdate);
-    setBackgroundBrush(QColor("#131923"));
+    setBackgroundBrush(QColor("#191919"));
     setTransformationAnchor(AnchorUnderMouse);
     setResizeAnchor(AnchorViewCenter);
     setDragMode(RubberBandDrag);
@@ -321,8 +321,8 @@ void GraphCanvas::fit_graph() {
               Qt::KeepAspectRatio);
 }
 void GraphCanvas::drawBackground(QPainter* painter, const QRectF& rect) {
-    painter->fillRect(rect, QColor("#131923"));
-    painter->setPen(QPen(QColor("#27303d"), 0));
+    painter->fillRect(rect, QColor("#191919"));
+    painter->setPen(QPen(QColor("#303030"), 0));
     constexpr int grid = 28;
     for (double x = std::floor(rect.left() / grid) * grid; x < rect.right(); x += grid)
         for (double y = std::floor(rect.top() / grid) * grid; y < rect.bottom(); y += grid)
