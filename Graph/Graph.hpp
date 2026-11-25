@@ -1,10 +1,13 @@
 #pragma once
 
 #include <cstddef>
+#include <cmath>
+#include <limits>
 #include <stdexcept>
 #include <utility>
 
 #include "GraphTypes.hpp"
+#include "PathResult.hpp"
 #include "../Dictionary/AVLDictionary.hpp"
 #include "../Queue/Queue.hpp"
 #include "../Stack/Stack.hpp"
@@ -17,6 +20,95 @@ private:
     AvlDictionary<EdgeKey<VertexID>, ArraySequence<Weight>,
                   EdgeKeyCompare<VertexID>> edges_;
     bool directed_;
+
+    void validate_path_weights(bool non_negative) const requires NumericPathWeight<Weight> {
+        edges_.for_each([&](const EdgeKey<VertexID>&, const ArraySequence<Weight>& weights) {
+            for (std::size_t i = 0; i < weights.size(); ++i) {
+                const Weight& weight = weights.get(i);
+                if constexpr (std::floating_point<Weight>) {
+                    if (!std::isfinite(weight)) throw std::invalid_argument("path weights must be finite");
+                }
+                if (non_negative && weight < Weight{}) {
+                    throw std::invalid_argument("Dijkstra requires nonnegative weights");
+                }
+            }
+        });
+    }
+
+    static Weight add_path_weights(Weight left, Weight right) requires NumericPathWeight<Weight> {
+        if constexpr (std::signed_integral<Weight>) {
+            if ((right > 0 && left > std::numeric_limits<Weight>::max() - right) ||
+                (right < 0 && left < std::numeric_limits<Weight>::lowest() - right)) {
+                throw std::overflow_error("path weight overflow");
+            }
+        } else if constexpr (std::unsigned_integral<Weight>) {
+            if (left > std::numeric_limits<Weight>::max() - right) {
+                throw std::overflow_error("path weight overflow");
+            }
+        }
+        const Weight sum = static_cast<Weight>(left + right);
+        if constexpr (std::floating_point<Weight>) {
+            if (!std::isfinite(sum)) throw std::overflow_error("path weight overflow");
+        }
+        return sum;
+    }
+
+    bool can_relax_path_edge(const AvlDictionary<VertexID, Weight>& distances,
+                             const VertexID& from, const VertexID& to,
+                             const Weight& weight) const requires NumericPathWeight<Weight> {
+        if (!distances.contains_key(from)) return false;
+        const Weight candidate = add_path_weights(distances.get(from), weight);
+        return !distances.contains_key(to) || candidate < distances.get(to);
+    }
+
+    bool relax_path_edge(AvlDictionary<VertexID, Weight>& distances,
+                         AvlDictionary<VertexID, VertexID>& predecessors,
+                         const VertexID& from, const VertexID& to,
+                         const Weight& weight) const requires NumericPathWeight<Weight> {
+        if (!distances.contains_key(from)) return false;
+        const Weight candidate = add_path_weights(distances.get(from), weight);
+        if (distances.contains_key(to)) {
+            if (!(candidate < distances.get(to))) return false;
+            distances.get(to) = candidate;
+        } else {
+            distances.add(to, candidate);
+        }
+        if (predecessors.contains_key(to)) predecessors.get(to) = from;
+        else predecessors.add(to, from);
+        return true;
+    }
+
+    template <typename Visitor>
+    void for_each_path_edge(Visitor&& visitor) const {
+        edges_.for_each([&](const EdgeKey<VertexID>& key, const ArraySequence<Weight>& weights) {
+            for (std::size_t i = 0; i < weights.size(); ++i) {
+                visitor(key.from, key.to, weights.get(i));
+                if (!directed_ && !EquivalentVertexIds(key.from, key.to)) {
+                    visitor(key.to, key.from, weights.get(i));
+                }
+            }
+        });
+    }
+
+    PathResult<VertexID, Weight> recover_path(
+        const VertexID& start, const VertexID& finish,
+        const AvlDictionary<VertexID, Weight>& distances,
+        const AvlDictionary<VertexID, VertexID>& predecessors) const requires NumericPathWeight<Weight> {
+        PathResult<VertexID, Weight> result;
+        if (!distances.contains_key(finish)) return result;
+        result.total_weight = distances.get(finish);
+        ArraySequence<VertexID> reversed;
+        VertexID current = finish;
+        while (!EquivalentVertexIds(current, start)) {
+            if (reversed.size() >= vertex_count()) throw std::logic_error("invalid predecessor chain");
+            reversed.append(current);
+            current = predecessors.get(current);
+        }
+        reversed.append(start);
+        for (std::size_t i = reversed.size(); i > 0; --i) result.vertices.append(reversed.get(i - 1));
+        result.reachable = true;
+        return result;
+    }
 
     void require_vertex(const VertexID& id) const {
         if (!contains_vertex(id)) throw std::out_of_range("vertex not found");
@@ -264,6 +356,95 @@ public:
                 if (!visited.contains_key(next)) pending.push(next);
             }
         }
+        return order;
+    }
+    PathResult<VertexID, Weight> Dijkstra(const VertexID& start, const VertexID& finish) const
+        requires NumericPathWeight<Weight> {
+        require_vertex(start);
+        require_vertex(finish);
+        validate_path_weights(true);
+        AvlDictionary<VertexID, Weight> distances;
+        AvlDictionary<VertexID, VertexID> predecessors;
+        AvlDictionary<VertexID, bool> settled;
+        distances.add(start, Weight{});
+
+        while (true) {
+            bool found = false;
+            VertexID current{};
+            Weight nearest{};
+            distances.for_each([&](const VertexID& id, const Weight& distance) {
+                if (!settled.contains_key(id) && (!found || distance < nearest)) {
+                    current = id;
+                    nearest = distance;
+                    found = true;
+                }
+            });
+            if (!found) break;
+            settled.add(current, true);
+            if (EquivalentVertexIds(current, finish)) break;
+            edges_.for_each([&](const Key& key, const Weights& weights) {
+                const VertexID* next = nullptr;
+                if (EquivalentVertexIds(key.from, current)) next = &key.to;
+                else if (!directed_ && EquivalentVertexIds(key.to, current)) next = &key.from;
+                if (!next || settled.contains_key(*next)) return;
+                for (std::size_t i = 0; i < weights.size(); ++i) {
+                    relax_path_edge(distances, predecessors, current, *next, weights.get(i));
+                }
+            });
+        }
+        return recover_path(start, finish, distances, predecessors);
+    }
+
+    PathResult<VertexID, Weight> BellmanFord(const VertexID& start, const VertexID& finish) const
+        requires NumericPathWeight<Weight> {
+        require_vertex(start);
+        require_vertex(finish);
+        validate_path_weights(false);
+        AvlDictionary<VertexID, Weight> distances;
+        AvlDictionary<VertexID, VertexID> predecessors;
+        distances.add(start, Weight{});
+        for (std::size_t pass = 1; pass < vertex_count(); ++pass) {
+            bool changed = false;
+            for_each_path_edge([&](const VertexID& from, const VertexID& to, const Weight& weight) {
+                if (relax_path_edge(distances, predecessors, from, to, weight)) changed = true;
+            });
+            if (!changed) break;
+        }
+        for_each_path_edge([&](const VertexID& from, const VertexID& to, const Weight& weight) {
+            if (can_relax_path_edge(distances, from, to, weight)) {
+                throw std::domain_error("reachable negative cycle");
+            }
+        });
+        return recover_path(start, finish, distances, predecessors);
+    }
+
+    ArraySequence<VertexID> TopologicalSort() const {
+        if (!directed_) throw std::invalid_argument("topological sort requires a directed graph");
+
+        AvlDictionary<VertexID, std::size_t> incoming;
+        vertices_.for_each([&](const VertexID& id, const VertexData&) { incoming.add(id, 0); });
+        edges_.for_each([&](const Key& key, const Weights& weights) {
+            incoming.get(key.to) += weights.size();
+        });
+
+        Queue<VertexID> ready;
+        vertices_.for_each([&](const VertexID& id, const VertexData&) {
+            if (incoming.get(id) == 0) ready.enqueue(id);
+        });
+        ArraySequence<VertexID> order;
+        while (!ready.empty()) {
+            const VertexID current = ready.front();
+            ready.dequeue();
+            order.append(current);
+            edges_.for_each([&](const Key& key, const Weights& weights) {
+                if (EquivalentVertexIds(key.from, current)) {
+                    auto& count = incoming.get(key.to);
+                    count -= weights.size();
+                    if (count == 0) ready.enqueue(key.to);
+                }
+            });
+        }
+        if (order.size() != vertex_count()) throw std::domain_error("graph contains a directed cycle");
         return order;
     }
 };

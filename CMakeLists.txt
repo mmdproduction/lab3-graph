@@ -30,6 +30,8 @@ if(BUILD_TESTING)
         Tests/GraphTests.cpp
         Tests/SequenceQueueTests.cpp
         Tests/GraphAlgorithmsTests.cpp
+        Tests/ShortestPathsTests.cpp
+        Tests/TopologicalSortTests.cpp
     )
     target_link_libraries(graph_tests PRIVATE Lab3::Graph GTest::gtest_main)
     if(MSVC)
