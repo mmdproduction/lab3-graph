@@ -5,6 +5,14 @@
 		{
 			"compiler" : 
 			{
+				"implicit" : {},
+				"path" : "/usr/bin/clang"
+			},
+			"language" : "C"
+		},
+		{
+			"compiler" : 
+			{
 				"id" : "Clang",
 				"implicit" : 
 				{

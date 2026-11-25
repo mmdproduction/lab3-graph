@@ -1,24 +1,42 @@
 #pragma once
 
-#include <cstdint>
+#include <concepts>
 
-using VertexID = std::uint32_t;
-inline constexpr VertexID kInvalidVertexID = 0;
+
+template <typename Id>
+concept ComparableVertexId = std::default_initializable<Id> &&
+    std::copyable<Id> && requires(const Id& left, const Id& right) {
+        { left < right } -> std::convertible_to<bool>;
+    };
+
+template <ComparableVertexId Id>
+bool EquivalentVertexIds(const Id& left, const Id& right) {
+    return !(left < right) && !(right < left);
+}
+
+template <ComparableVertexId Id>
 struct EdgeKey {
-    VertexID from = kInvalidVertexID;
-    VertexID to = kInvalidVertexID;
-    bool operator==(const EdgeKey&) const = default;
+    Id from{};
+    Id to{};
+
+    bool operator==(const EdgeKey& other) const {
+        return EquivalentVertexIds(from, other.from) &&
+               EquivalentVertexIds(to, other.to);
+    }
 };
 
+template <ComparableVertexId Id>
 class EdgeKeyCompare {
 public:
-    bool operator()(const EdgeKey& left, const EdgeKey& right) const noexcept {
-        if (left.from != right.from) return left.from < right.from;
+    bool operator()(const EdgeKey<Id>& left, const EdgeKey<Id>& right) const {
+        if (left.from < right.from) return true;
+        if (right.from < left.from) return false;
         return left.to < right.to;
     }
 };
 
-inline EdgeKey MakeEdgeKey(VertexID from, VertexID to, bool directed) noexcept {
+template <ComparableVertexId Id>
+EdgeKey<Id> MakeEdgeKey(const Id& from, const Id& to, bool directed) {
     if (!directed && to < from) return {to, from};
     return {from, to};
 }

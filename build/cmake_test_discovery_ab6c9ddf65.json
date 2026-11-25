@@ -1,0 +1,125 @@
+{
+  "tests": 13,
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "GraphTypes",
+      "tests": 1,
+      "testsuite": [
+        {
+          "name": "OrdersGenericPairsAndNormalizesUndirectedEdges",
+          "file": "\/home\/evodev\/EvoSoft\/Mephi\/lab3-graph\/Tests\/GraphTests.cpp",
+          "line": 36
+        }
+      ]
+    },
+    {
+      "name": "GraphVertices",
+      "tests": 2,
+      "testsuite": [
+        {
+          "name": "UsesExplicitStringAndPreviouslyReservedIds",
+          "file": "\/home\/evodev\/EvoSoft\/Mephi\/lab3-graph\/Tests\/GraphTests.cpp",
+          "line": 47
+        },
+        {
+          "name": "AcceptsOrderingOnlyIdsAndUsesOrderingEquivalence",
+          "file": "\/home\/evodev\/EvoSoft\/Mephi\/lab3-graph\/Tests\/GraphTests.cpp",
+          "line": 63
+        }
+      ]
+    },
+    {
+      "name": "GraphParallel",
+      "tests": 2,
+      "testsuite": [
+        {
+          "name": "DirectedGroupsHaveIndependentDirectionsAndAllowEqualWeights",
+          "file": "\/home\/evodev\/EvoSoft\/Mephi\/lab3-graph\/Tests\/GraphTests.cpp",
+          "line": 77
+        },
+        {
+          "name": "UndirectedReverseUsesOneGroupAndIndexesShiftAfterRemoval",
+          "file": "\/home\/evodev\/EvoSoft\/Mephi\/lab3-graph\/Tests\/GraphTests.cpp",
+          "line": 93
+        }
+      ]
+    },
+    {
+      "name": "GraphLoops",
+      "tests": 2,
+      "testsuite": [
+        {
+          "name": "DirectedLoopsCountOnceInEachDirection",
+          "file": "\/home\/evodev\/EvoSoft\/Mephi\/lab3-graph\/Tests\/GraphTests.cpp",
+          "line": 105
+        },
+        {
+          "name": "UndirectedLoopsContributeTwiceAndAppearAsOneNeighbor",
+          "file": "\/home\/evodev\/EvoSoft\/Mephi\/lab3-graph\/Tests\/GraphTests.cpp",
+          "line": 116
+        }
+      ]
+    },
+    {
+      "name": "GraphRemoval",
+      "tests": 1,
+      "testsuite": [
+        {
+          "name": "VertexDeletionRemovesAllIncidentGroupsAndLoops",
+          "file": "\/home\/evodev\/EvoSoft\/Mephi\/lab3-graph\/Tests\/GraphTests.cpp",
+          "line": 126
+        }
+      ]
+    },
+    {
+      "name": "GraphErrors",
+      "tests": 1,
+      "testsuite": [
+        {
+          "name": "RejectsMissingEndpointsAndInvalidIndexesWithoutChanges",
+          "file": "\/home\/evodev\/EvoSoft\/Mephi\/lab3-graph\/Tests\/GraphTests.cpp",
+          "line": 140
+        }
+      ]
+    },
+    {
+      "name": "GraphValueSemantics",
+      "tests": 1,
+      "testsuite": [
+        {
+          "name": "CopiesBucketsIndependentlyAndPreservesModes",
+          "file": "\/home\/evodev\/EvoSoft\/Mephi\/lab3-graph\/Tests\/GraphTests.cpp",
+          "line": 157
+        }
+      ]
+    },
+    {
+      "name": "GraphExceptions",
+      "tests": 2,
+      "testsuite": [
+        {
+          "name": "FailedWeightOperationsPreserveOriginalBucket",
+          "file": "\/home\/evodev\/EvoSoft\/Mephi\/lab3-graph\/Tests\/GraphTests.cpp",
+          "line": 189
+        },
+        {
+          "name": "FailedVertexDeletionOrCopyAssignmentPreservesGraph",
+          "file": "\/home\/evodev\/EvoSoft\/Mephi\/lab3-graph\/Tests\/GraphTests.cpp",
+          "line": 215
+        }
+      ]
+    },
+    {
+      "name": "GraphModel",
+      "tests": 1,
+      "testsuite": [
+        {
+          "name": "RandomOperationsAgreeWithIndependentMultigraphModel",
+          "file": "\/home\/evodev\/EvoSoft\/Mephi\/lab3-graph\/Tests\/GraphTests.cpp",
+          "line": 241
+        }
+      ]
+    }
+  ]
+}

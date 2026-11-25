@@ -1,7 +1,9 @@
 {
 	"InstallScripts" : 
 	[
-		"/home/evodev/EvoSoft/Mephi/lab3-graph/build/cmake_install.cmake"
+		"/home/evodev/EvoSoft/Mephi/lab3-graph/build/cmake_install.cmake",
+		"/home/evodev/EvoSoft/Mephi/lab3-graph/build/Extern/GoogleTest/cmake_install.cmake",
+		"/home/evodev/EvoSoft/Mephi/lab3-graph/build/Extern/GoogleTest/googletest/cmake_install.cmake"
 	],
 	"Parallel" : false
 }

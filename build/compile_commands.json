@@ -1,0 +1,20 @@
+[
+{
+  "directory": "/home/evodev/EvoSoft/Mephi/lab3-graph/build",
+  "command": "/usr/bin/clang++ -I/home/evodev/EvoSoft/Mephi/lab3-graph -I/home/evodev/EvoSoft/Mephi/lab3-graph/Extern/AVL/AVL -isystem /home/evodev/EvoSoft/Mephi/lab3-graph/Extern/GoogleTest/googletest/include -isystem /home/evodev/EvoSoft/Mephi/lab3-graph/Extern/GoogleTest/googletest -g -std=c++20 -o CMakeFiles/graph_tests.dir/Tests/GraphTests.cpp.o -c /home/evodev/EvoSoft/Mephi/lab3-graph/Tests/GraphTests.cpp",
+  "file": "/home/evodev/EvoSoft/Mephi/lab3-graph/Tests/GraphTests.cpp",
+  "output": "/home/evodev/EvoSoft/Mephi/lab3-graph/build/CMakeFiles/graph_tests.dir/Tests/GraphTests.cpp.o"
+},
+{
+  "directory": "/home/evodev/EvoSoft/Mephi/lab3-graph/build",
+  "command": "/usr/bin/clang++ -I/home/evodev/EvoSoft/Mephi/lab3-graph/Extern/GoogleTest/googletest/include -I/home/evodev/EvoSoft/Mephi/lab3-graph/Extern/GoogleTest/googletest -g -std=c++20 -Wall -Wshadow -Wconversion -Wundef -DGTEST_HAS_PTHREAD=1 -fexceptions -W -Wpointer-arith -Wreturn-type -Wcast-qual -Wwrite-strings -Wswitch -Wunused-parameter -Wcast-align -Winline -Wredundant-decls -Wchar-subscripts -o Extern/GoogleTest/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.o -c /home/evodev/EvoSoft/Mephi/lab3-graph/Extern/GoogleTest/googletest/src/gtest-all.cc",
+  "file": "/home/evodev/EvoSoft/Mephi/lab3-graph/Extern/GoogleTest/googletest/src/gtest-all.cc",
+  "output": "/home/evodev/EvoSoft/Mephi/lab3-graph/build/Extern/GoogleTest/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.o"
+},
+{
+  "directory": "/home/evodev/EvoSoft/Mephi/lab3-graph/build",
+  "command": "/usr/bin/clang++ -isystem /home/evodev/EvoSoft/Mephi/lab3-graph/Extern/GoogleTest/googletest/include -isystem /home/evodev/EvoSoft/Mephi/lab3-graph/Extern/GoogleTest/googletest -g -std=c++20 -Wall -Wshadow -Wconversion -Wundef -DGTEST_HAS_PTHREAD=1 -fexceptions -W -Wpointer-arith -Wreturn-type -Wcast-qual -Wwrite-strings -Wswitch -Wunused-parameter -Wcast-align -Winline -Wredundant-decls -Wchar-subscripts -o Extern/GoogleTest/googletest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o -c /home/evodev/EvoSoft/Mephi/lab3-graph/Extern/GoogleTest/googletest/src/gtest_main.cc",
+  "file": "/home/evodev/EvoSoft/Mephi/lab3-graph/Extern/GoogleTest/googletest/src/gtest_main.cc",
+  "output": "/home/evodev/EvoSoft/Mephi/lab3-graph/build/Extern/GoogleTest/googletest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o"
+}
+]

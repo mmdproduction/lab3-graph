@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(Lab3::Graph LANGUAGES CXX)
+project(Lab3Graph LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,10 +16,9 @@ target_include_directories(graph INTERFACE
 )
 
 
+add_subdirectory(Extern/GoogleTest EXCLUDE_FROM_ALL)
+add_executable(graph_tests Tests/GraphTests.cpp)
+target_link_libraries(graph_tests PRIVATE Lab3::Graph GTest::gtest_main)
+include(GoogleTest)
+gtest_discover_tests(graph_tests DISCOVERY_TIMEOUT 30)
 
-
-
-# add_subdirectory(Extern/GoogleTest EXCLUDE_FROM_ALL)
-# add_executable(graph_tests ${GRAPH_TEST_SOURCES})
-# target_link_libraries(graph_tests PRIVATE Lab3::Graph GTest::gtest_main)
-# include(GoogleTest)
